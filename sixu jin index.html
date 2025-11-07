@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Jin Sixu Quiz (Web)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f172a;         /* slate-900 */
+      --card:#111827;       /* gray-900 */
+      --muted:#9ca3af;      /* gray-400 */
+      --fg:#e5e7eb;         /* gray-200 */
+      --acc:#22d3ee;        /* cyan-400 */
+      --acc2:#a855f7;       /* violet-500 */
+      --good:#34d399;       /* green-400 */
+      --bad:#f87171;        /* red-400 */
+      --warn:#f59e0b;       /* amber-500 */
+      --btn:#1f2937;        /* gray-800 */
+      --btnH:#374151;       /* gray-700 */
+      --border:#334155;     /* slate-700 */
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(34,211,238,.08), transparent 60%),
+                  radial-gradient(1000px 500px at 10% 110%, rgba(168,85,247,.06), transparent 60%),
+                  var(--bg);
+      color:var(--fg);
+      min-height:100dvh;
+      display:grid;
+      place-items:center;
+      padding:32px 16px;
+    }
+    .wrap{
+      width:min(900px, 100%);
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:20px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    header{
+      padding:24px 24px 8px;
+      border-bottom:1px solid var(--border);
+      background:
+        radial-gradient(600px 200px at 0% 0%, rgba(34,211,238,.08), transparent 60%),
+        radial-gradient(400px 200px at 100% 0%, rgba(168,85,247,.08), transparent 60%);
+    }
+    h1{font-size:clamp(22px, 3vw, 28px); margin:0 0 6px}
+    .sub{color:var(--muted); font-size:14px}
+    main{padding:24px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:20px;
+      margin-bottom:16px;
+    }
+    .q-stem{font-size:18px; line-height:1.45; margin:0 0 12px}
+    .opts{display:grid; gap:10px}
+    .btn{
+      display:flex; align-items:center; gap:10px;
+      padding:12px 14px; border-radius:12px;
+      background:var(--btn); border:1px solid var(--border);
+      color:var(--fg); cursor:pointer; font:inherit; text-align:left;
+      transition:transform .04s ease, background .15s ease, border-color .15s ease;
+    }
+    .btn:hover{background:var(--btnH); border-color:#475569}
+    .btn[disabled]{opacity:.6; cursor:not-allowed}
+    .chip{
+      font-weight:700; width:28px; height:28px; display:inline-grid; place-items:center;
+      border-radius:8px; background:rgba(255,255,255,.06); border:1px solid var(--border);
+    }
+    .feedback{margin-top:10px; font-size:14px}
+    .ok{color:var(--good)}
+    .bad{color:var(--bad)}
+    .note{color:var(--muted); font-size:13px}
+    .row{display:flex; gap:10px; align-items:center}
+    input[type="text"]{
+      width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border);
+      background:#0b1220; color:var(--fg); outline:none;
+    }
+    input[type="text"]::placeholder{color:#6b7280}
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    .pill{
+      padding:10px 14px; border-radius:999px; border:1px solid var(--border);
+      background:linear-gradient(180deg, #202938, #1a2233); color:var(--fg);
+      cursor:pointer; font-weight:600;
+    }
+    .pill:hover{filter:brightness(1.07)}
+    .score{
+      font-weight:800; font-size:22px; letter-spacing:.3px
+    }
+    .progress{
+      height:8px; border-radius:999px; background:#111827; border:1px solid var(--border);
+      overflow:hidden; margin-top:10px
+    }
+    .bar{
+      height:100%; width:0%; background:linear-gradient(90deg, var(--acc), var(--acc2));
+      transition:width .25s ease
+    }
+    footer{padding:18px 24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center}
+    .kbd{
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      border:1px solid var(--border); background:#0b1220; padding:2px 6px; border-radius:6px; color:#d1d5db
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <header>
+      <h1>Jin Sixu Quiz</h1>
+      <div class="sub">5 questions · 20 pts each · total 100</div>
+      <div class="progress"><div class="bar" id="progbar"></div></div>
+    </header>
+
+    <main id="main"></main>
+
+    <footer>
+      <div>
+        <span class="score" id="score">Score: 0 / 100</span>
+        <span class="sub"> · SHOW_CORRECT_ON_WRONG: <span class="kbd" id="cfg"></span></span>
+      </div>
+      <div class="actions">
+        <button class="pill" id="restartBtn" title="Restart (R)">Restart</button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // ===== Config (same semantics as your C code) =====
+    const SHOW_CORRECT_ON_WRONG = true;     // 1 = show correct answer after wrong
+    const POINTS_PER_QUESTION   = 20;       // 5 * 20 = 100
+
+    // ===== Questions (ported from your C code; fixed apostrophes/encoding) =====
+    /** @typedef {{stem:string, opts:string[], correct:'A'|'B'|'C'|'D'|'E'}} MCQ */
+    /** @type {MCQ[]} */
+    const mcqs = [
+      {
+        stem: "1) What is Jin Sixu's favorite food?",
+        opts: ["Hot pot", "BBQ", "Stir-fry", "Japanese cuisine"],
+        correct: 'D',
+      },
+      {
+        stem: "2) What does Jin Sixu like most?",
+        opts: ["Jiajia", "Money", "Toys", "Cars", "Firearms"],
+        correct: 'A',
+      },
+      {
+        stem: "3) What is Jin Sixu's favorite sport?",
+        opts: ["Skiing", "Golf", "Esports", "Running"],
+        correct: 'A',
+      },
+      {
+        stem: "4) What is Jin Sixu's favorite game?",
+        opts: ["Apex", "Naraka: Bladepoint", "Valorant", "Delta Force", "None"],
+        correct: 'E',
+      },
+    ];
+
+    // Fill-in #5 config & accepted normalized answers (mirrors your C code)
+    const fillInStem = "Q5. Jin Sixu's birthday (free text):";
+    const fillInPrompt = "Type your answer (e.g., May 22 / may 22 / 03-23 / 3/26 / 23th May):";
+    const acceptedBirthdayRaw = [
+      "january26",
+      "jan26",
+      "0126",
+      "126",
+      "26january",
+      "26jan",
+    ];
+
+    // ===== Helpers =====
+
+    // normalize() — mirrors your C normalize: strip spaces & common separators, lowercase ASCII, remove ending ordinal suffix
+    function normalize(src){
+      const separators = new Set([' ', '\t', '\n', '\r', '-', '_', '/', '.', ',']);
+      let out = [];
+      for (let i = 0; i < src.length; i++){
+        const ch = src[i];
+        if (separators.has(ch)) continue;
+        const code = ch.codePointAt(0);
+        if (code < 128){
+          out.push(ch.toLowerCase());
+        } else {
+          out.push(ch);
+        }
+      }
+      let s = out.join('');
+
+      // remove ending ordinal suffix if present: st/nd/rd/th (only at the end, per your C code behavior)
+      const suf = ["st","nd","rd","th"];
+      for (const x of suf){
+        if (s.endsWith(x)){
+          s = s.slice(0, -x.length);
+          break;
+        }
+      }
+      return s;
+    }
+
+    // Pre-normalize accepted answers like the C code does
+    const acceptedBirthday = acceptedBirthdayRaw.map(a => normalize(a));
+
+    function letterOfIndex(idx){ return String.fromCharCode('A'.charCodeAt(0) + idx); }
+
+    // State
+    let score = 0;
+    let currentIndex = 0; // 0..3 for MCQ steps, 4 for fill-in
+    const totalQuestions = 5;
+
+    const main = document.getElementById('main');
+    const scoreEl = document.getElementById('score');
+    const cfgEl = document.getElementById('cfg');
+    const progbar = document.getElementById('progbar');
+    const restartBtn = document.getElementById('restartBtn');
+
+    cfgEl.textContent = SHOW_CORRECT_ON_WRONG ? 'ON' : 'OFF';
+
+    function updateScore(){ scoreEl.textContent = `Score: ${score} / 100`; }
+    function updateProgress(){
+      const pct = (currentIndex / totalQuestions) * 100;
+      progbar.style.width = `${pct}%`;
+    }
+
+    function renderMCQ(i){
+      const q = mcqs[i];
+      const card = document.createElement('section');
+      card.className = 'card';
+
+      const stem = document.createElement('h2');
+      stem.className = 'q-stem';
+      stem.textContent = `Q${i+1}. ${q.stem.replace(/^\d+\)\s*/, '')}`;
+      card.appendChild(stem);
+
+      const opts = document.createElement('div');
+      opts.className = 'opts';
+      q.opts.forEach((text, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.setAttribute('data-letter', letterOfIndex(idx));
+        btn.innerHTML = `<span class="chip">${letterOfIndex(idx)}</span> <span>${text}</span>`;
+        btn.addEventListener('click', () => {
+          handleMCQAnswer(i, letterOfIndex(idx), btn, card, q);
+        });
+        opts.appendChild(btn);
+      });
+      card.appendChild(opts);
+
+      const hint = document.createElement('div');
+      hint.className = 'note';
+      hint.style.marginTop = '8px';
+      hint.innerHTML = `Tip: You can also press <span class="kbd">A</span>…<span class="kbd">${letterOfIndex(q.opts.length-1)}</span> to answer.`;
+      card.appendChild(hint);
+
+      main.replaceChildren(card);
+      updateProgress();
+
+      // keyboard shortcuts A-E
+      window.onkeydown = (e)=>{
+        const k = e.key.toUpperCase();
+        const rangeEnd = letterOfIndex(q.opts.length-1);
+        if (k >= 'A' && k <= rangeEnd){
+          const btn = card.querySelector(`.btn[data-letter="${k}"]`);
+          if (btn) btn.click();
+        }
+      };
+    }
+
+    function lockButtons(card){
+      card.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    }
+
+    function handleMCQAnswer(i, letter, btn, card, q){
+      lockButtons(card);
+      const correct = q.correct;
+      const fb = document.createElement('div');
+      fb.className = 'feedback';
+      if (letter === correct){
+        fb.innerHTML = `<span class="ok">Correct! (+${POINTS_PER_QUESTION})</span>`;
+        score += POINTS_PER_QUESTION;
+        updateScore();
+      } else {
+        fb.innerHTML = `<span class="bad">Incorrect.</span>`;
+        if (SHOW_CORRECT_ON_WRONG){
+          const idx = correct.charCodeAt(0) - 'A'.charCodeAt(0);
+          fb.innerHTML += `<div class="note">Correct answer: <strong>${correct}) ${q.opts[idx]}</strong></div>`;
+        }
+      }
+      card.appendChild(fb);
+
+      // next
+      setTimeout(()=>{
+        currentIndex++;
+        if (currentIndex < mcqs.length){
+          renderMCQ(currentIndex);
+        } else {
+          renderFillIn();
+        }
+      }, 500);
+    }
+
+    function renderFillIn(){
+      updateProgress();
+      const card = document.createElement('section');
+      card.className = 'card';
+
+      const stem = document.createElement('h2');
+      stem.className = 'q-stem';
+      stem.textContent = "Q5. Jin Sixu's birthday (free text):";
+      card.appendChild(stem);
+
+      const label = document.createElement('div');
+      label.className = 'note';
+      label.textContent = fillInPrompt;
+      card.appendChild(label);
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'e.g., January 26 / Jan 26 / 01-26 / 1/26 / 26th January ...';
+      input.autofocus = true;
+      input.setAttribute('aria-label', 'Birthday answer');
+      row.appendChild(input);
+
+      const submit = document.createElement('button');
+      submit.className = 'pill';
+      submit.textContent = 'Submit';
+      row.appendChild(submit);
+
+      card.appendChild(row);
+
+      const fb = document.createElement('div');
+      fb.className = 'feedback';
+      card.appendChild(fb);
+
+      main.replaceChildren(card);
+
+      const finish = (ok)=>{
+        currentIndex = 5;
+        updateProgress();
+        if (ok){
+          fb.innerHTML = `<span class="ok">Correct! (+${POINTS_PER_QUESTION})</span>`;
+          score += POINTS_PER_QUESTION; updateScore();
+        } else {
+          fb.innerHTML = `<span class="bad">Incorrect.</span>`;
+          if (SHOW_CORRECT_ON_WRONG){
+            fb.innerHTML += `<div class="note">Accepted answers include: "January 26", "Jan 26", "01-26", "1/26".</div>`;
+          }
+        }
+        // show final after a short pause
+        setTimeout(renderResult, 700);
+      };
+
+      submit.addEventListener('click', ()=>{
+        const norm = normalize(input.value || '');
+        const ok = acceptedBirthday.includes(norm);
+        finish(ok);
+      });
+
+      input.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter'){
+          submit.click();
+        }
+      });
+
+      window.onkeydown = null;
+    }
+
+    function renderResult(){
+      const card = document.createElement('section');
+      card.className = 'card';
+
+      const h = document.createElement('h2');
+      h.className = 'q-stem';
+      h.textContent = '======= Result =======';
+      card.appendChild(h);
+
+      const p1 = document.createElement('div');
+      p1.style.fontSize = '18px';
+      p1.innerHTML = `<strong>Score:</strong> ${score} / 100`;
+      card.appendChild(p1);
+
+      const p2 = document.createElement('div');
+      p2.className = 'note';
+      p2.textContent = '======================';
+      card.appendChild(p2);
+
+      const again = document.createElement('div');
+      again.className = 'actions';
+      const btn = document.createElement('button');
+      btn.className = 'pill';
+      btn.textContent = 'Try Again';
+      btn.addEventListener('click', restart);
+      again.appendChild(btn);
+      card.appendChild(again);
+
+      main.replaceChildren(card);
+      updateProgress();
+      window.onkeydown = (e)=>{ if (e.key.toLowerCase()==='r') restart(); };
+    }
+
+    function restart(){
+      score = 0;
+      currentIndex = 0;
+      updateScore();
+      updateProgress();
+      renderMCQ(0);
+    }
+
+    restartBtn.addEventListener('click', restart);
+    // init
+    restart();
+  </script>
+</body>
+</html>
